@@ -1,6 +1,6 @@
 ## Proyecto sobre calidad del aire en Valencia
 
-![Raimundo](imagen/raimundo.jpg)
+!["Helis"](imagen/helis.jpeg)
  
 Este proyecto automatiza la ingesta, limpieza y análisis de datos de calidad del aire obtenidos desde la API de OpenData Valencia. Creación de un entorno virtual y levantar un contenedor en docker.
 
