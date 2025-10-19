@@ -2,8 +2,8 @@
 
 ![Raimundo](image.png)
  
-Este proyecto automatiza la ingesta, limpieza y análisis de datos de calidad del aire obtenidos desde la API de OpenData Valencia
-.
+Este proyecto automatiza la ingesta, limpieza y análisis de datos de calidad del aire obtenidos desde la API de OpenData Valencia. Creación de un entorno virtual y levantar un contenedor en docker.
+
 Genera informes actuales y históricos con gráficos y documentos Word (.docx).
 
 ## Funcionalidades
@@ -17,9 +17,7 @@ Genera informes actuales y históricos con gráficos y documentos Word (.docx).
 1. Instalación de dependencias
 
 Ejecuta:
-
 pip install -r requirements.txt
-
 
 Contenido sugerido del archivo requirements.txt:
 
@@ -37,7 +35,6 @@ Asegúrate de tener una base de datos PostgreSQL activa y accesible.
 Por defecto, el script usa la conexión:
 
 postgresql://postgres:mysecretpassword@localhost:5432/postgres
-
 
 Puedes modificar esta línea en el script:
 
@@ -78,10 +75,6 @@ Ingesta de datos + Informe Histórico
 python app/app.py --modo historico
 
 
-Opcionalmente, puedes filtrar por fecha o estación:
-
-python app/app.py --modo historico --since "2025-10-01" --estacion "A05_POLITECNIC_60m"
-
 
 Genera:
 
@@ -99,21 +92,14 @@ Reporte Actual:
 
 Gráficos de promedio de contaminantes por estación.
 Incluye:
-
 NO2
-
 PM10
-
 PM25
 
 Reporte Histórico:
-
 Evolución temporal del NO₂ en cada estación seleccionada.
 Notas
-
 El script elimina el archivo registro_historico.csv y lo reemplaza tras cada ejecución.
-
 Los gráficos se guardan automáticamente en las carpetas output/actual y output/historico.
-
 Si no existen datos nuevos en la API, el script notificará "No hay nuevos records".
 
