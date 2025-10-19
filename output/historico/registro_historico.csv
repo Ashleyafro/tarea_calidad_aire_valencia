@@ -1,0 +1,10 @@
+objectid,nombre,direccion,tipozona,no2,pm10,pm25,tipoemisio,fecha_carg,calidad_am,fiwareid
+14,Boulevar Sur,BULEVARD SUD,Urbana,53.0,,,Tráfico,2025-10-19 20:00:00+00:00,Razonablemente Buena,A02_BULEVARDSUD_60m
+16,Pista de Silla,PISTA DE SILLA,Urbana,29.0,19.0,11.0,Tráfico,2025-10-19 20:00:00+00:00,Razonablemente Buena,A04_PISTASILLA_60m
+13,Francia,AVDA.FRANCIA,Urbana,11.0,18.0,9.0,Tráfico,2025-10-19 20:00:00+00:00,Razonablemente Buena,A01_AVFRANCIA_60m
+12,Dr. Lluch,DR.LLUCH,Urbana,30.0,22.0,10.0,Tráfico,2025-10-19 20:00:00+00:00,Razonablemente Buena,A08_DR_LLUCH_60m
+17,Universidad Politécnica,POLITÈCNIC,Suburbana,21.0,13.0,8.0,Fondo,2025-10-19 20:00:00+00:00,Buena,A05_POLITECNIC_60m
+20,Cabanyal,CABANYAL,Urbana,19.0,14.0,8.0,Fondo,2025-10-19 20:00:00+00:00,Buena,A09_CABANYAL_60m
+15,Molí del Sol,MOLÍ DEL SOL,Suburbana,20.0,16.0,9.0,Tráfico,2025-10-19 20:00:00+00:00,Razonablemente Buena,A03_MOLISOL_60m
+21,Olivereta,OLIVERETA,Urbana,60.0,20.0,12.0,Tráfico,2025-10-19 20:00:00+00:00,Razonablemente Buena,A10_OLIVERETA_60m
+18,Viveros,VIVERS,Urbana,24.0,,,Fondo,2025-10-19 20:00:00+00:00,Razonablemente Buena,A06_VIVERS_60m

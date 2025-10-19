@@ -1,0 +1,9 @@
+Prueba en la terminal los siguientes commandos:
+-   Ingesta + informe actual
+Terminal --> python app/app.py --modo actual
+
+-   Ingesta + informe histórico
+Terminal --> python app/app.py --modo historico
+
+-   Opcionales útiles
+Terminal --> python app/app.py --modo historico --since "2025-10-19" --estacion "A05_POLITECNIC_60m"
