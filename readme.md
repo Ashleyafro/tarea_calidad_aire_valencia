@@ -39,8 +39,7 @@ postgresql://postgres:mysecretpassword@localhost:5432/postgres
 Puedes modificar esta línea en el script:
 
 churro = 'postgresql://postgres:mysecretpassword@localhost:5432/postgres'
-
-🗂 Estructura del Proyecto
+Estructura del Proyecto
 project/
 ├── app.py
 ├── data/
