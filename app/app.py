@@ -8,25 +8,30 @@ from pathlib import Path
 from docx import Document
 
     
-def check_updates(data, engine):
-    # Convertir API en DataFrame
-    df_api = pd.DataFrame(data["results"])
-    df_api["fecha_carg"] = pd.to_datetime(df_api["fecha_carg"])
+def check_updates(engine, cleaned_df):
 
-    # agarramos la fecha más reciente de nuestra base de datos
-    latest_db_fecha = "SELECT MAX(fecha_carg) as latest_fecha FROM tabla_bd"
+    latest_db_fecha = pd.read_sql("SELECT MAX(fecha_carg) FROM tabla_bd", engine)
+    latest_fecha = latest_db_fecha.iloc[0,0]
 
     # Obtener la fecha max de los datos recolectados de la API
-    latest_api_fecha = df_api["fecha_carg"].max()
+    latest_api_fecha = cleaned_df["fecha_carg"].max()
 
     # Check si los datos que tenemos están actualizados
-    if latest_api_fecha != latest_db_fecha:
+    if latest_api_fecha != latest_fecha:
         print("Nuevos datos guardados")
-        # get latest df
+        # Conseguir df más actualizado
         registro_path = "./output/historico/registro_historico.csv"
-        tabla_actualizada = df_api.to_sql("tabla_bd", con = engine, if_exists = 'append', index = False)
-        tabla_actualizada.to_csv(registro_path, index=False)
-        #save_raw_csv(last_df.to_dict(orient="records"), engine)    ?
+        #subimos nuestros nuevos datos
+        cleaned_df.to_sql("tabla_bd", con = engine, if_exists = 'append', index = False)
+
+        if (os.path.exists(registro_path) and os.path.isfile(registro_path)): #comprueba si la ruta existe y si el archivo que se encuentra en la ruta existe
+            os.remove(registro_path)
+            registro_df = pd.read_sql("SELECT * FROM tabla_bd", engine) #cargamos nuestra base de datos y la pasamos a csv
+            registro_df.to_csv(registro_path, index=False)
+            
+        else:
+            print("No se ha encontrado la ruta del archivo")
+            
     else:
         print("No hay nuevos records")
         return None
@@ -36,16 +41,24 @@ def save_raw_csv(data, engine):
     df = pd.DataFrame(data["results"])
     cleaned_df = pd.DataFrame(df[["objectid", "nombre", "direccion", "tipozona", "no2", "pm10", "pm25", "tipoemisio", "fecha_carg", "calidad_am", "fiwareid"]])
     cleaned_df = cleaned_df[cleaned_df.objectid != 22]
-    cleaned_df["fecha_carg"] = pd.to_datetime(cleaned_df["fecha_carg"], format="%Y-%m-%dT%H:%M:%S%z")
+    cleaned_df["fecha_carg"] = pd.to_datetime(cleaned_df["fecha_carg"], utc = True)
 
     # Save in PostgreSQL
-    cleaned_df.to_sql("tabla_bd", engine, if_exists="replace", index=False)
-    print("Datos cargados a PostgreSQL")
+    file = "./output/historico/registro_historico.csv"
+    df_prueba = pd.read_sql("SELECT * FROM tabla_bd", engine)
+    if len(df_prueba) == 0: #Si no tenemos BD, creamos una
+        cleaned_df.to_sql("tabla_bd", engine, if_exists="replace", index=False)
+        print("Datos cargados a PostgreSQL")
+        #Condición si la ruta existe pero el archivo no
+        if (os.path.exists(file) and not os.path.isfile(file)): #Como esta es nuestra primera BD, guardamelo directamente en el historico
+            registro_df = pd.read_sql("SELECT * FROM tabla_bd", engine)
+            registro_df.to_csv(file, index=False)
+    else:
+        check_updates(engine, cleaned_df)
     
-    # Guardar el CSV
+    # Guardar el CSV con timestamp incluido en el nombre
     os.makedirs("./data/raw", exist_ok=True)
     latest_date = cleaned_df["fecha_carg"].max() 
-    cleaned_df["fecha_carg"] = cleaned_df["fecha_carg"].dt.strftime("%Y-%m-%dT%H:%M:%S%z")
     safe_timestamp = latest_date.strftime("%Y-%m-%dT%H-%M-%S")
     csv_filepath = os.path.join("./data/raw", f"ultimo_{safe_timestamp}.csv")
 
@@ -54,25 +67,17 @@ def save_raw_csv(data, engine):
             print(f"CSV guardado en: {csv_filepath}")
     except:
             print(f"Error al guardar el archivo CSV")
+    
 
-    # get path for registro
-    file = "./output/historico/registro_historico.csv"
-    if (os.path.exists(file) and os.path.isfile(file)):
-        os.remove(file)
-        #registro_path = "./output/historico/registro_historico.csv "?
-        registro_df = pd.read_sql("SELECT * FROM tabla_bd", engine)
-        #registro_df.to_csv(registro_path, index=False)  ?
-        registro_df.to_csv(file, index=False)
-    else:
-        registro_df = pd.read_sql("SELECT * FROM tabla_bd", engine)
-        registro_df.to_csv(file, index=False)
+
+   
 
 def parse_args():
     #Creamos el parser (p) para parsear argumentos 
     p = argparse.ArgumentParser(description="Reportes")
     #Añadimos los argumemtos:
     p.add_argument("--modo", choices=["actual", "historico"], required=True, help="Modo: 'actual' o 'historico'")   #Argumento modo en donde tienes que elegir entre actual o historico
-    p.add_argument("--since", type=str, help="Fecha de inicio (formato: YYYY-MM-DD)") #Argumento que recibe una cadena string de fecha
+    p.add_argument("--since", type=str, help="Fecha de inicio (formato: YYYY-MM-DD:00:00+0000)") #Argumento que recibe una cadena string de fecha
     p.add_argument("--estacion", type=str, help="ID de estacion")   #Argumento para filtrar segun el fiwareid
     return p.parse_args()
 
@@ -85,35 +90,34 @@ def generate_actual_report():
     else:
         latest_csv = os.path.join(csv_folder, last_file)
         df_latest = pd.read_csv(latest_csv)     #Pasamos el último csv como un df llamado df_latest
+        #Donde exportaremos nuestras gráficas
+        output_dir = os.path.join("./output/actual")
+        os.makedirs(output_dir, exist_ok=True)
 
         #Cálculo de valores
-        summary = df_latest.groupby("fiwareid")[["no2", "pm10", "pm25"]].sum()
-        
+        summary = df_latest.groupby("fiwareid")[["no2","pm10","pm25"]].sum()
         os.makedirs("./output/actual", exist_ok=True)
         print("Tabla de resumen guardada")
 
         #Creación de gráficas
+
         summary["no2"].plot(kind="bar", title="Gráfico de barras no2 por estación", color = "red")
         plt.xlabel("Estacion")
         plt.ylabel("Nivel NO2") 
+        plt.savefig(os.path.join(output_dir, "no2_por_estacion.png"))
 
         summary["pm10"].plot(kind="bar", title="Gráfico de barras no2 por estación", color = "red")
         plt.xlabel("Estacion")
         plt.ylabel("Nivel pm10")
+        plt.savefig(os.path.join(output_dir, "pm10_por_estacion.png"))
 
         summary["pm25"].plot(kind="bar", title="Gráfico de barras no2 por estación", color = "red")
         plt.xlabel("Estacion")
         plt.ylabel("Nivel pm25")
-
-        #Exportamos gráficas
-        output_dir = os.path.join("./output/actual")
-        os.makedirs(output_dir, exist_ok=True)
+        plt.savefig(os.path.join(output_dir, "pm25_por_estacion.png"))
 
         summary.to_csv(os.path.join(output_dir, "tabla_actual.csv"))
-
-        plt.savefig(os.path.join(output_dir, "no2_por_estacion.png"))
-        plt.savefig(os.path.join(output_dir, "pm10_por_estacion.png"))
-        plt.savefig(os.path.join(output_dir, "pm25_por_estacion.png"))
+        
         #Guardamos las gráficas en un doc
         doc = Document()
         doc.add_heading('Grafica informe actual estacion/no2', level=1)
@@ -132,33 +136,66 @@ def generate_actual_report():
         print("Graficos actuales guardados")
 
 def generate_historico_report(since, estacion):
-    #Obtener último csv
     historico_df = pd.read_csv("./output/historico/registro_historico.csv")
+    #El parámetro utc le dice a pandas que trate las fechas como si estuvieran horario UTC
+    historico_df["fecha_carg"] = pd.to_datetime(historico_df["fecha_carg"], utc=True) #evitar errores a la hora de comparar fechas (fecha_carg no es tipo datetime)
+    output_dir = "./output/historico"
     #Filtramos en base a lo que el usuario haya puesto
-    if since:
-        since_date = pd.to_datetime(since, format="%Y-%m-%d") #pasamos since a una variable de tipo datetime
-        historico_df["fecha_carg"] = pd.to_datetime(historico_df["fecha_carg"]) #evitar errores a la hora de comparar fechas (fecha_carg no es tipo datetime)
+    if since and estacion:
+        since_date = pd.to_datetime(since, utc=True) #pasamos since a una variable de tipo datetime
         historico_df = historico_df[historico_df["fecha_carg"] >= since_date]   #filtramos desde la fecha dada (since_date) hasta la última fecha de carga
-        
-    if estacion:
+        historico_df = historico_df[historico_df["fiwareid"] == estacion]
+        plt.figure(figsize=(10,5))  #tamaño del gráfico (rectangular)
+        #Marker muestra un circulo y linestyle une los circulos en una linea contínua
+        plt.plot(historico_df["fecha_carg"], historico_df["no2"], marker='o', linestyle='-')    #dibuja gráfica del tiempo en donde "eje x" es la fecha de carga y el "eje y" el no2 generado.
+
+        #Creamos gráfica
+        plt.title(f"NO2 histórico de la estación {estacion} desde {since} hasta la fecha más reciente")
+        plt.xlabel("Fecha")
+        plt.ylabel("Nivel NO2")
+        plt.tight_layout()
+
+        #La guardamos
+        os.makedirs(output_dir, exist_ok=True)
+        plt.savefig(os.path.join(output_dir, "NO2_historico_estacion_since.png"))
+        plt.close()
+        print("Graficos historicos guardados")
+
+#Crear una gráfica en donde salga el total de no2 de una estación a lo largo del tiempo indeterminado      
+    elif estacion and not since:
         historico_df = historico_df[historico_df["fiwareid"] == estacion]   #filtramos según la estación recibida
 
-    plt.figure(figsize=(10,5))  #tamaño del gráfico (rectangular)
-    #Marker muestra un circulo y linestyle une los circulos en una linea contínua
-    plt.plot(historico_df["fecha_carg"], historico_df["no2"], marker='o', linestyle='-')    #dibuja gráfica del tiempo en donde "eje x" es la fecha de carga y el "eje y" el no2 generado.
+        plt.figure(figsize=(10,5))  #tamaño del gráfico (rectangular)
+        #Marker muestra un circulo y linestyle une los circulos en una linea contínua
+        plt.plot(historico_df["fecha_carg"], historico_df["no2"], marker='o', linestyle='-')    #dibuja gráfica del tiempo en donde "eje x" es la fecha de carga y el "eje y" el no2 generado.
 
-    #Creamos gráfica
-    plt.title("NO2 histórico por estación")
-    plt.xlabel("Fecha")
-    plt.ylabel("Nivel NO2")
-    plt.tight_layout()
+        #Creamos gráfica
+        plt.title(f"NO2 histórico por la estación {estacion} ")
+        plt.xlabel("Fecha")
+        plt.ylabel("Nivel NO2")
+        plt.tight_layout()
 
-    #La guardamos
-    output_dir = "./output/historico"
-    os.makedirs(output_dir, exist_ok=True)
-    plt.savefig(os.path.join(output_dir, "NO2_historico.png"))
-    plt.close()
-    print("Graficos historicos guardados")
+        #La guardamos
+        os.makedirs(output_dir, exist_ok=True)
+        plt.savefig(os.path.join(output_dir, "NO2_historico_estacion.png"))
+        plt.close()
+        print("Graficos historicos guardados")
+    #Crea una gráfica de barras de la media del NO2 de cada estación determinado por el tiempo
+    elif since and not estacion:
+        since_date = pd.to_datetime(since, utc=True) #pasamos since a una variable de tipo datetime utc
+        historico_df = historico_df[historico_df["fecha_carg"] >= since_date] #filtrado de fechas
+        plt.figure(figsize=(15,10))  #tamaño del gráfico (rectangular)
+        #Creamos gráfica
+        historico_df = historico_df.groupby("fiwareid")["no2"].mean()
+        historico_df.plot(kind="bar", title=f"Gráfico de barras: media de no2 por estación desde {since} hasta la última fecha de carga", color = "red")
+        plt.xlabel("Estacion")
+        plt.ylabel("Media de NO2") 
+
+        #La guardamos
+        os.makedirs(output_dir, exist_ok=True)
+        plt.savefig(os.path.join(output_dir, "NO2_historico_since.png"))
+        plt.close()
+        print("Graficos historicos guardados")
 
 def main():
     args = parse_args()
