@@ -41,6 +41,8 @@ def save_raw_csv(data, engine):
     df = pd.DataFrame(data["results"])
     cleaned_df = pd.DataFrame(df[["objectid", "nombre", "direccion", "tipozona", "no2", "pm10", "pm25", "tipoemisio", "fecha_carg", "calidad_am", "fiwareid"]])
     cleaned_df = cleaned_df[cleaned_df.objectid != 22]
+    #Eliminar filas con valores nulos
+    cleaned_df = cleaned_df.dropna(subset=["objectid", "nombre", "direccion", "tipozona", "no2", "pm10", "pm25", "tipoemisio", "fecha_carg", "calidad_am", "fiwareid"])
     cleaned_df["fecha_carg"] = pd.to_datetime(cleaned_df["fecha_carg"], utc = True)
 
     # Save in PostgreSQL
@@ -68,8 +70,6 @@ def save_raw_csv(data, engine):
     except:
             print(f"Error al guardar el archivo CSV")
     
-
-
    
 
 def parse_args():
@@ -143,11 +143,11 @@ def generate_historico_report(since, estacion):
     #Filtramos en base a lo que el usuario haya puesto
     if since and estacion:
         since_date = pd.to_datetime(since, utc=True) #pasamos since a una variable de tipo datetime
-        historico_df = historico_df[historico_df["fecha_carg"] >= since_date]   #filtramos desde la fecha dada (since_date) hasta la última fecha de carga
-        historico_df = historico_df[historico_df["fiwareid"] == estacion]
+        historico_df_filtradofs = historico_df[historico_df["fecha_carg"] >= since_date]   #filtramos desde la fecha dada (since_date) hasta la última fecha de carga
+        historico_df_filtradofs = historico_df_filtradofs[historico_df_filtradofs["fiwareid"] == estacion]
         plt.figure(figsize=(10,5))  #tamaño del gráfico (rectangular)
         #Marker muestra un circulo y linestyle une los circulos en una linea contínua
-        plt.plot(historico_df["fecha_carg"], historico_df["no2"], marker='o', linestyle='-')    #dibuja gráfica del tiempo en donde "eje x" es la fecha de carga y el "eje y" el no2 generado.
+        plt.plot(historico_df_filtradofs["fecha_carg"], historico_df_filtradofs["no2"], marker='o', linestyle='-')    #dibuja gráfica del tiempo en donde "eje x" es la fecha de carga y el "eje y" el no2 generado.
 
         #Creamos gráfica
         plt.title(f"NO2 histórico de la estación {estacion} desde {since} hasta la fecha más reciente")
@@ -163,11 +163,11 @@ def generate_historico_report(since, estacion):
 
 #Crear una gráfica en donde salga el total de no2 de una estación a lo largo del tiempo indeterminado      
     elif estacion and not since:
-        historico_df = historico_df[historico_df["fiwareid"] == estacion]   #filtramos según la estación recibida
+        historico_df_filtradof = historico_df[historico_df["fiwareid"] == estacion]   #filtramos según la estación recibida
 
         plt.figure(figsize=(10,5))  #tamaño del gráfico (rectangular)
         #Marker muestra un circulo y linestyle une los circulos en una linea contínua
-        plt.plot(historico_df["fecha_carg"], historico_df["no2"], marker='o', linestyle='-')    #dibuja gráfica del tiempo en donde "eje x" es la fecha de carga y el "eje y" el no2 generado.
+        plt.plot(historico_df_filtradof["fecha_carg"], historico_df_filtradof["no2"], marker='o', linestyle='-')    #dibuja gráfica del tiempo en donde "eje x" es la fecha de carga y el "eje y" el no2 generado.
 
         #Creamos gráfica
         plt.title(f"NO2 histórico por la estación {estacion} ")
@@ -183,11 +183,11 @@ def generate_historico_report(since, estacion):
     #Crea una gráfica de barras de la media del NO2 de cada estación determinado por el tiempo
     elif since and not estacion:
         since_date = pd.to_datetime(since, utc=True) #pasamos since a una variable de tipo datetime utc
-        historico_df = historico_df[historico_df["fecha_carg"] >= since_date] #filtrado de fechas
+        historico_df_filtrados = historico_df[historico_df["fecha_carg"] >= since_date] #filtrado de fechas
         plt.figure(figsize=(15,10))  #tamaño del gráfico (rectangular)
         #Creamos gráfica
-        historico_df = historico_df.groupby("fiwareid")["no2"].mean()
-        historico_df.plot(kind="bar", title=f"Gráfico de barras: media de no2 por estación desde {since} hasta la última fecha de carga", color = "red")
+        historico_df_filtrados = historico_df_filtrados.groupby("fiwareid")["no2"].mean()
+        historico_df_filtrados.plot(kind="bar", title=f"Gráfico de barras: media de no2 por estación desde {since} hasta la última fecha de carga", color = "red")
         plt.xlabel("Estacion")
         plt.ylabel("Media de NO2") 
 
@@ -196,6 +196,20 @@ def generate_historico_report(since, estacion):
         plt.savefig(os.path.join(output_dir, "NO2_historico_since.png"))
         plt.close()
         print("Graficos historicos guardados")
+    else:
+        plt.figure(figsize=(15,10))  #tamaño del gráfico (rectangular)
+        #Creamos gráfica
+        historico_df = historico_df.groupby("fiwareid")["no2"].mean()
+        historico_df.plot(kind="bar", title=f"Gráfico de barras: media de no2 de todas las estaciones", color = "red")
+        plt.xlabel("Estaciones")
+        plt.ylabel("Media de NO2") 
+
+        #La guardamos
+        os.makedirs(output_dir, exist_ok=True)
+        plt.savefig(os.path.join(output_dir, "NO2_historico.png"))
+        plt.close()
+        print("Graficos historicos guardados")
+   
 
 def main():
     args = parse_args()
