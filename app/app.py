@@ -45,17 +45,24 @@ def save_raw_csv(data, engine):
     cleaned_df = cleaned_df.dropna(subset=["objectid", "nombre", "direccion", "tipozona", "no2", "pm10", "pm25", "tipoemisio", "fecha_carg", "calidad_am", "fiwareid"])
     cleaned_df["fecha_carg"] = pd.to_datetime(cleaned_df["fecha_carg"], utc = True)
 
-    # Save in PostgreSQL
     file = "./output/historico/registro_historico.csv"
-    df_prueba = pd.read_sql("SELECT * FROM tabla_bd", engine)
-    if len(df_prueba) == 0: #Si no tenemos BD, creamos una
-        cleaned_df.to_sql("tabla_bd", engine, if_exists="replace", index=False)
+    #Comprobamos para ver si nuestra base de datos ya existe o no
+    try:
+        comprobacion_db = pd.read_sql("SELECT * FROM tabla_bd", engine) #Mira si hay valores en la bd
+    except Exception:
+        comprobacion_db = pd.DataFrame()  #Si la tabla no existe, lo guarda como df
+
+    if comprobacion_db.empty: #Comprueba que el df está vacío
+        #Como no tenemos tablas existentes, podemos usar replace
+        cleaned_df.to_sql("tabla_bd", engine, if_exists="replace", index=False) 
         print("Datos cargados a PostgreSQL")
-        #Condición si la ruta existe pero el archivo no
-        if (os.path.exists(file) and not os.path.isfile(file)): #Como esta es nuestra primera BD, guardamelo directamente en el historico
-            registro_df = pd.read_sql("SELECT * FROM tabla_bd", engine)
+    #Condición si la ruta existe pero el archivo no 
+        if (os.path.exists(file) and not os.path.isfile(file)):
+        #Como esta es nuestra primera BD, guardamelo directamente en el historico
+            registro_df = pd.read_sql("SELECT * FROM tabla_bd", engine) 
             registro_df.to_csv(file, index=False)
-    else:
+
+    else: #caso en donde ya tengamos una bd
         check_updates(engine, cleaned_df)
     
     # Guardar el CSV con timestamp incluido en el nombre
